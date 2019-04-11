@@ -16,9 +16,11 @@ library(ggplot2)
 library(ggthemes)
 
 #downloading files from the url such that in teh case they are updated, the data will automatically change to reflect the true state of the data
+
 download.file(url = "https://registrar.fas.harvard.edu/files/fas-registrar/files/class_enrollment_summary_by_term_3.22.19.xlsx", destfile = "spring_2019", mode = "wb")
 
 #this file is read in and saved, cleaned, and empty rows filtered out all at once. The top 3 rows are skipped because the headers and data doesn't begin until the 4th row. The same for the other file
+
 s2019 <- read_excel("spring_2019", skip = 3) %>% 
   clean_names() %>% 
   filter(! is.na(course_name))
@@ -35,44 +37,75 @@ s2018 <- read_excel("spring_2018", skip = 3) %>%
 ```{r}
 
 #because the raw data comes from two different data sets, they must be joined so that they can be plotted and compared easily. Inner join was used because it joins only rows that are contained in both datasets. 
+
 all <- list(s2019, s2018) %>% 
+  
   #joined by Course ID because it is an consistent in both datasets and an identifier of the course, which is the basic unit for the analyses that will be done. Hinged around course name. 
+  
   reduce(inner_join, by = "course_id") %>% 
+  
   #columns with .x on the end are from the 2019 dataset, and .y is 2018 data
+  
   select(course_name.x, course_title.x, u_grad.x, u_grad.y, instructor_full_name.x, instructor_full_name.y, course_department.x)
 
 #entire joined dataset created above is piped into manipulations to create a dataset to plot
+
 prof_changed <-
   all %>% 
-  #this graph will look at which classes saw a drop in enrollment. so, the rows where instructor name from 2019 and 2018 are different are filtered out. also filtered out was rows with no students. 
+
+    #this graph will look at which classes saw a drop in enrollment. so, the rows where instructor name from 2019 and 2018 are different are filtered out. also filtered out was rows with no students. 
+  
   filter(instructor_full_name.x != instructor_full_name.y, u_grad.x > 0, u_grad.y > 0) %>% 
+  
   #a new column was created to represent the difference between 2018 and 2019 in enrollment of undergraduates. Positive numbers represent a decrease from 2018 to 2019
+  
   mutate(difference = u_grad.x - u_grad.y) %>% 
+  
   select(course_name.x, instructor_full_name.x, instructor_full_name.y, difference, u_grad.x, u_grad.y, course_department.x) %>% 
+  
   #Because Expos courses are constantly changing and a student's course is 100% up to lottery. they were removed so that changes in professor/enrollment didn't skew the data. 
+  
   filter(course_name.x != "Expository Writing 20") %>%
+  
   #ordered by margin of "difference" for graphing purposes
+  
   arrange(desc(difference)) %>% 
+  
   slice(1:25)
 
 
 prof_changed %>%
-  #hand-selected the top 10 rows of "difference" 
+ 
+   #hand-selected the top 10 rows of "difference" 
+  
   filter(course_name.x %in% c("Psychological Science", "Intro to African Amer Studies", "Introductory Real Analysis", "Introduction to Social Studies", "Engineering Design Projects", "Knowledge of Meaning", "Studies in Real and Complex An", "Statistics for the Behavioral", "Widely Applied Physics", "Math Methods in the Sciences")) %>% 
+  
   ggplot() +
+  
   #create bar graph which shows difference in number of enrollees 
+  
   geom_bar(aes(x = course_name.x, y = difference, fill = course_department.x), stat = "identity") + 
+  
   coord_flip() +
+  
   #make theme wsj which is a bit yellow/creamy and has a nice font 
+  
   theme_set(theme_wsj()) +
+  
   #color palette chosen from the slew of R for no particular reason
+  
   scale_fill_brewer(palette="Set3") +
-  #sizes of font tweaked so caption is smaller and title is larger. also caption to moved to the bottom because its large and wide 
+  
+  #sizes of font tweaked so caption is smaller and title is larger. also caption to moved to the bottom because its large and wide and takes up an awkward amount of room
+  
   theme(plot.title = element_text(size = rel(0.9)), plot.caption = element_text(size = rel(0.25)), legend.position = "bottom") +
+  
   labs(title = "Difference in Undergrad Enrollment Following a Change in Professor \n Comparison of Spring 2018 and Spring 2019 by Course", 
        caption = "Data from the Harvard Registrar",
        fill = "Department") +
+  
   ylab("Enrollment Margin") +
+  
   xlab("Course Name")
 
   
