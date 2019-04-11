@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, error = FALSE)
 
 library(plyr)
 library(tidyverse)
@@ -15,6 +15,7 @@ library(janitor)
 library(ggplot2)
 library(stats)
 library(plotly)
+library(ggthemes)
 
 download.file(url = "https://registrar.fas.harvard.edu/files/fas-registrar/files/class_enrollment_summary_by_term_3.22.19.xlsx", destfile = "spring_2019", mode = "wb")
 
@@ -41,31 +42,33 @@ s2017 <- read_excel("spring_2017", skip = 3) %>%
 
 all <- list(s2019, s2018) %>% 
   reduce(inner_join, by = "course_id") %>% 
-  select(course_name.x, course_title.x, u_grad.x, u_grad.y, instructor_full_name.x, instructor_full_name.y)
+  select(course_name.x, course_title.x, course_department.x, u_grad.x, u_grad.y, instructor_full_name.x, instructor_full_name.y)
 
 prof_changed <-
   all %>% 
   filter(instructor_full_name.x != instructor_full_name.y, u_grad.x > 0, u_grad.y > 0) %>% 
   mutate(difference = u_grad.x - u_grad.y) %>% 
   arrange(desc(difference)) %>% 
-  select(course_name.x, instructor_full_name.x, instructor_full_name.y, difference, u_grad.x, u_grad.y) %>% 
-  filter(course_name.x != "Expository Writing 20") %>% 
-  arrange(desc(difference)) %>% 
-  slice(1:25)
+  filter(difference < 75) %>% 
+  select(course_name.x, instructor_full_name.x, instructor_full_name.y, difference, u_grad.x, u_grad.y, course_department.x) %>% 
+  filter(course_name.x != "Expository Writing 20") 
 
 prof_changed  
 
 prof_changed %>%
-  filter(course_name.x %in% c("Psychological Science", "Intro to African Amer Studies", "Introductory Real Analysis", "Introduction to Social Studies", "Engineering Design Projects", "Knowledge of Meaning", "Studies in Real and Complex An", "Statistics for the Behavioral", "Widely Applied Physics", "Math Methods in the Sciences")) %>% 
+  #filter(course_department.x %in% c("Near Eastern Languages & Civ", "Economics", "East Asian Langs& Civ", "Mathematics", "Philosophy", "Linguistics", "Psychology", "Physics", "Government", "Economics")) %>% 
   ggplot() +
-  geom_bar(aes(x = course_name.x, y = difference), stat = "identity") + 
+  geom_bar(aes(x = course_name.x, y = difference, fill = course_department.x), stat = "identity") +
+  facet_grid(~ course_department.x) +
   coord_flip() +
-  theme() +
-  labs(title = "Difference in Course Enrollment \n Following a Change in Professor", 
-       subtitle = "Comparison of Spring 2018 and Spring 2019", 
+  theme_classic() +
+  theme_set(theme_wsj()) +
+  theme(plot.title = element_text(size = rel(0.5)), plot.caption = element_text(size = rel(0.25))) +
+  labs(title = "Difference in Course Enrollment \n Following a Change in Professor \n Comparison of Spring 2018 and Spring 2019", 
        caption = "Data from the Harvard Registrar") +
   xlab("Enrollment Margin") +
   ylab("Course Name")
+
   
   
 
